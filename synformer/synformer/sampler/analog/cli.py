@@ -43,11 +43,13 @@ def _building_blocks_option(p: str) -> list[tuple[Molecule, float]]:
 @click.option("--score-min", type=float, default=0.0)
 @click.option("--prob", "-p", type=float, default=1.0)
 @click.option("--novel-templates", "-n", type=_novel_templates_option, default=None)
-@click.option("--building-blocks", "-bb", type=_building_blocks_option, default=None)
+@click.option("--building-blocks", "-bb", type=_building_blocks_option, default=None) # For biasing towards specific
+@click.option("--add-bb-path", type=str, default=None) # For adding more BB into catalogue
 def main(
     input: list[Molecule],
     output: pathlib.Path,
     model_path: pathlib.Path,
+    add_bb_path: pathlib.Path,
     search_width: int,
     exhaustiveness: int,
     num_gpus: int,
@@ -67,6 +69,7 @@ def main(
         model_path=model_path,
         novel_templates=novel_templates,
         building_blocks=building_blocks,
+        add_bb_path=add_bb_path,
         search_width=search_width,
         exhaustiveness=exhaustiveness,
         num_gpus=num_gpus,
@@ -112,12 +115,14 @@ def main(
 @click.option("--prob", "-p", type=float, default=1.0)
 @click.option("--novel-templates", "-n", type=_novel_templates_option, default=None)
 @click.option("--building-blocks", "-bb", type=_building_blocks_option, default=None)
+@click.option("--add-bb-path", type=str, default=None) # For adding more BB into catalogue
 def main_cpu(
     input: list[Molecule],
     output: pathlib.Path,
     model_path: pathlib.Path,
     mat_path: pathlib.Path,
     fpi_path: pathlib.Path,
+    add_bb_path: pathlib.Path,
     search_width: int,
     exhaustiveness: int,
     time_limit: int,
@@ -145,6 +150,7 @@ def main_cpu(
         sort_by_scores=not dont_sort,
         score_min=score_min,
         prob_diffusion=prob,
+        add_bb_path=add_bb_path,
     )
 
 

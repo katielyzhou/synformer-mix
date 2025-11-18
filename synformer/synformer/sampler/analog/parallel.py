@@ -7,6 +7,7 @@ from multiprocessing import synchronize as sync
 from typing import TypeAlias
 
 import pandas as pd
+import numpy as np
 import torch
 from omegaconf import OmegaConf
 from tqdm.auto import tqdm
@@ -36,6 +37,7 @@ class Worker(mp.Process):
         time_limit: int = 120,
         novel_templates: list[tuple[Reaction, float]] | None = None,
         building_blocks: list[tuple[Molecule, float]] | None = None,
+        add_bb_path: pathlib.Path | None = None,
         score_min: float = 0.0,
         prob_diffusion: float = 1.0
     ):
@@ -55,6 +57,7 @@ class Worker(mp.Process):
         self._prob_diffusion = prob_diffusion
         self._novel_templates=novel_templates
         self._building_blocks=building_blocks
+        self.add_bb_path = add_bb_path
 
     def run(self) -> None:
         os.sched_setaffinity(0, range(os.cpu_count() or 1))
@@ -69,6 +72,12 @@ class Worker(mp.Process):
 
         self._fpindex: FingerprintIndex = pickle.load(open(config.chem.fpindex, "rb"))
         self._rxn_matrix: ReactantReactionMatrix = pickle.load(open(config.chem.rxn_matrix, "rb"))
+        if self.add_bb_path:
+            _fpindex_add = pickle.load(open(self.add_bb_path, "rb"))
+            num_orig_bb = len(self._fpindex._molecules)
+            self._fpindex._molecules += _fpindex_add._molecules
+            self._fpindex._fp = np.vstack([self._fpindex._fp, _fpindex_add._fp])
+            print(f'BB expanded: {num_orig_bb} -> {len(self._fpindex._molecules)}')
 
         try:
             while True:
@@ -306,6 +315,7 @@ def run_parallel_sampling(
     model_path: pathlib.Path,
     novel_templates: list[tuple[Reaction, float]] | None,
     building_blocks: list[tuple[Molecule, float]] | None, # Building blocks to bias towards, must be .csv format
+    add_bb_path: pathlib.Path | None = None,
     score_min: float = 0.0,
     search_width: int = 24,
     exhaustiveness: int = 64,
@@ -334,6 +344,7 @@ def run_parallel_sampling(
         prob_diffusion=prob_diffusion,
         novel_templates=novel_templates,
         building_blocks=building_blocks,
+        add_bb_path=add_bb_path,
     )
     output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -466,6 +477,7 @@ def run_sampling_one_cpu(
     fpi_path: pathlib.Path,
     novel_templates: list[tuple[Reaction, float]] | None,
     building_blocks: list[tuple[Molecule, float]] | None, # Building blocks to bias towards, must be .csv format
+    add_bb_path: pathlib.Path | None = None,
     score_min: float = 0.0,
     search_width: int = 24,
     exhaustiveness: int = 64,
@@ -490,6 +502,12 @@ def run_sampling_one_cpu(
     }
     _fpindex: FingerprintIndex = pickle.load(open(fpi_path, "rb"))
     _rxn_matrix: ReactantReactionMatrix = pickle.load(open(mat_path, "rb"))
+    if add_bb_path:
+        _fpindex_add = pickle.load(open(add_bb_path, "rb"))
+        num_orig_bb = len(_fpindex._molecules)
+        _fpindex._molecules += _fpindex_add._molecules
+        _fpindex._fp = np.vstack([_fpindex._fp, _fpindex_add._fp])
+        print(f'BB expanded: {num_orig_bb} -> {len(_fpindex._molecules)}')
     
     output.parent.mkdir(parents=True, exist_ok=True)
 
